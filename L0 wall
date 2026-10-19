@@ -1,0 +1,55 @@
+FeatureScript 3029;
+import(path : "onshape/std/common.fs", version : "3029.0");
+
+annotation { "Feature Type Name" : "CanSat L0 Wall" }
+export const cansatL0Wall = defineFeature(function(context is Context, id is Id, definition is map)
+    precondition
+    {
+    }
+    {
+        // ---- L0 Wall geometry: 3mm to 33mm, hollow annular wall ----
+        const OD = 144 * millimeter;
+        const ID = 140 * millimeter;
+        const z0 = 3 * millimeter;
+        const z1 = 33 * millimeter;
+        const height = z1 - z0;
+
+        const sketchPlane = plane(vector(0, 0, z0), vector(0, 0, 1), vector(1, 0, 0));
+
+        // ---- Outer solid cylinder ----
+        const skOuter = newSketchOnPlane(context, id + "l0OuterSk", { "sketchPlane" : sketchPlane });
+        skCircle(skOuter, "outer", { "center" : vector(0, 0) * millimeter, "radius" : OD / 2 });
+        skSolve(skOuter);
+
+        opExtrude(context, id + "l0OuterExtrude", {
+            "entities" : qSketchRegion(id + "l0OuterSk"),
+            "direction" : vector(0, 0, 1) * meter,
+            "endBound" : BoundingType.BLIND,
+            "endDepth" : height
+        });
+
+        // ---- Inner solid cylinder (to be subtracted out) ----
+        const skInner = newSketchOnPlane(context, id + "l0InnerSk", { "sketchPlane" : sketchPlane });
+        skCircle(skInner, "inner", { "center" : vector(0, 0) * millimeter, "radius" : ID / 2 });
+        skSolve(skInner);
+
+        opExtrude(context, id + "l0InnerExtrude", {
+            "entities" : qSketchRegion(id + "l0InnerSk"),
+            "direction" : vector(0, 0, 1) * meter,
+            "endBound" : BoundingType.BLIND,
+            "endDepth" : height
+        });
+
+        // ---- Subtract inner from outer to make it hollow ----
+        opBoolean(context, id + "l0Subtract", {
+            "tools" : qCreatedBy(id + "l0InnerExtrude", EntityType.BODY),
+            "targets" : qCreatedBy(id + "l0OuterExtrude", EntityType.BODY),
+            "operationType" : BooleanOperationType.SUBTRACTION
+        });
+
+        setProperty(context, {
+            "entities" : qCreatedBy(id + "l0OuterExtrude", EntityType.BODY),
+            "propertyType" : PropertyType.NAME,
+            "value" : "L0_Wall"
+        });
+    });
