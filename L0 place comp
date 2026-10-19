@@ -1,0 +1,66 @@
+FeatureScript 3029;
+import(path : "onshape/std/common.fs", version : "3029.0");
+
+
+
+annotation { "Feature Type Name" : "Place Component" }
+export const placeComponent = defineFeature(function(context is Context, id is Id, definition is map)
+    precondition
+    {
+        annotation { "Name" : "Component to place (select all its parts together)", "Filter" : EntityType.BODY }
+        definition.part is Query;
+
+        annotation { "Name" : "Rotation about X axis (deg)" }
+        isAngle(definition.rotX, ANGLE_360_BOUNDS);
+
+        annotation { "Name" : "Rotation about Y axis (deg)" }
+        isAngle(definition.rotY, ANGLE_360_BOUNDS);
+
+        annotation { "Name" : "Rotation about Z axis (deg)" }
+        isAngle(definition.rotZ, ANGLE_360_BOUNDS);
+
+        annotation { "Name" : "X position (from disc center)" }
+        isLength(definition.xPos, LENGTH_BOUNDS);
+
+        annotation { "Name" : "Y position (from disc center)" }
+        isLength(definition.yPos, LENGTH_BOUNDS);
+
+        annotation { "Name" : "Z position (height from Z=0)" }
+        isLength(definition.zPos, LENGTH_BOUNDS);
+    }
+    {
+        var bodies = definition.part;
+
+        // Rotate about X axis (around origin)
+        if (definition.rotX != 0 * degree)
+        {
+            opTransform(context, id + "rotateX", {
+                "bodies" : bodies,
+                "transform" : rotationAround(line(vector(0, 0, 0) * meter, vector(1, 0, 0)), definition.rotX)
+            });
+        }
+
+        // Rotate about Y axis
+        if (definition.rotY != 0 * degree)
+        {
+            opTransform(context, id + "rotateY", {
+                "bodies" : bodies,
+                "transform" : rotationAround(line(vector(0, 0, 0) * meter, vector(0, 1, 0)), definition.rotY)
+            });
+        }
+
+        // Rotate about Z axis
+        if (definition.rotZ != 0 * degree)
+        {
+            opTransform(context, id + "rotateZ", {
+                "bodies" : bodies,
+                "transform" : rotationAround(line(vector(0, 0, 0) * meter, vector(0, 0, 1)), definition.rotZ)
+            });
+        }
+
+        // Move into final position
+        opTransform(context, id + "translate", {
+            "bodies" : bodies,
+            "transform" : transform(vector(definition.xPos, definition.yPos, definition.zPos))
+        });
+    });
