@@ -1,32 +1,22 @@
-FeatureScript 2437;
-import(path : "onshape/std/geometry.fs", version : "3029.0");
+FeatureScript 3029;
+import(path : "onshape/std/common.fs", version : "3029.0");
 
-annotation { "Feature Type Name" : "CanSat Bottom Cap" } 
+
+
+annotation { "Feature Type Name" : "CanSat Bottom Cap" }
 export const cansatBottomCap = defineFeature(function(context is Context, id is Id, definition is map)
     precondition
     {
-        annotation { "Name" : "Camera hole angle (deg, 0 = +X axis)", "Default" : 90 }
-        isAngle(definition.cameraAngle, ANGLE_360_BOUNDS);
     }
     {
-        // ---- Bottom Cap geometry ----
-        const capOD = 144 * millimeter;
+        // ---- Bottom Cap: 3mm thick disc with camera + sensor holes ----
+        const OD = 144 * millimeter;
         const capThickness = 3 * millimeter;
 
         const cameraDia = 10 * millimeter;
-        const sensorDia = 22 * millimeter;
+        const sensorDia = 20 * millimeter;
+        const camToSensorDistance = 52 * millimeter; // center-to-center
 
-        // Camera hole is dead center of the disc.
-        // Each soil sensor hole is 52mm center-to-center from the camera hole
-        // (36mm edge-to-edge gap + 5mm camera radius + 11mm sensor radius),
-        // placed diametrically opposite each other through the center.
-        const camToSensorDistance = 52 * millimeter;
-
-        const cameraAngle = definition.cameraAngle; // kept only to set sensor axis orientation
-        const sensor1Angle = cameraAngle;
-        const sensor2Angle = cameraAngle + 180 * degree;
-
-        // ---- Sketch on XY plane at Z=0 ----
         const sk = newSketchOnPlane(context, id + "bottomCapSk", {
             "sketchPlane" : plane(vector(0, 0, 0 * millimeter), vector(0, 0, 1), vector(1, 0, 0))
         });
@@ -34,34 +24,30 @@ export const cansatBottomCap = defineFeature(function(context is Context, id is 
         // Outer boundary
         skCircle(sk, "outer", {
             "center" : vector(0, 0) * millimeter,
-            "radius" : capOD / 2
+            "radius" : OD / 2
         });
 
-        // Camera hole - dead center
-        const cameraCenter = vector(0, 0) * millimeter;
+        // Camera hole - dead center (for ESP32/HiWonder module)
         skCircle(sk, "cameraHole", {
-            "center" : cameraCenter,
+            "center" : vector(0, 0) * millimeter,
             "radius" : cameraDia / 2
         });
 
-        // Soil sensor hole 1 - 52mm from camera center
-        const sensor1Center = vector(camToSensorDistance * cos(sensor1Angle), camToSensorDistance * sin(sensor1Angle));
-        skCircle(sk, "sensorHole1", {
-            "center" : sensor1Center,
+        // Sensor hole 1 - top (+Y), 52mm from camera center
+        skCircle(sk, "sensorHoleTop", {
+            "center" : vector(0, camToSensorDistance),
             "radius" : sensorDia / 2
         });
 
-        // Soil sensor hole 2 - 52mm from camera center, opposite side
-        const sensor2Center = vector(camToSensorDistance * cos(sensor2Angle), camToSensorDistance * sin(sensor2Angle));
-        skCircle(sk, "sensorHole2", {
-            "center" : sensor2Center,
+        // Sensor hole 2 - bottom (-Y), 52mm from camera center
+        skCircle(sk, "sensorHoleBottom", {
+            "center" : vector(0, -camToSensorDistance),
             "radius" : sensorDia / 2
         });
 
         skSolve(sk);
 
-        // Region = outer circle minus the three holes
-        const region = qSketchRegion(id + "bottomCapSk", true);
+        const region = qSketchRegion(id + "bottomCapSk");
 
         opExtrude(context, id + "bottomCapExtrude", {
             "entities" : region,
