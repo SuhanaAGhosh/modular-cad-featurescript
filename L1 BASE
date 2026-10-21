@@ -1,0 +1,30 @@
+FeatureScript 3029;
+import(path : "onshape/std/common.fs", version : "3029.0");
+
+
+annotation { "Feature Type Name" : "CanSat L1 Base" }
+export const cansatL1Base = defineFeature(function(context is Context, id is Id, definition is map)
+    precondition
+    {
+    }
+    {
+        // ---- L1 Base plate: SQUARE, 33-35mm, 2mm thick, 99mm side, same center as before ----
+        const sideLength = 99 * millimeter;
+        const z0 = 33 * millimeter;
+        const baseThickness = 1.6 * millimeter;
+
+        const basePlane = plane(vector(0, 0, z0), vector(0, 0, 1), vector(1, 0, 0));
+        const skBase = newSketchOnPlane(context, id + "l1BaseSk", { "sketchPlane" : basePlane });
+        skRectangle(skBase, "base", {
+            "firstCorner" : vector(-sideLength / 2, -sideLength / 2),
+            "secondCorner" : vector(sideLength / 2, sideLength / 2)
+        });
+        skSolve(skBase);
+        opExtrude(context, id + "l1BaseExtrude", {
+            "entities" : qSketchRegion(id + "l1BaseSk"),
+            "direction" : vector(0, 0, 1) * meter,
+            "endBound" : BoundingType.BLIND,
+            "endDepth" : baseThickness
+        });
+        setProperty(context, { "entities" : qCreatedBy(id + "l1BaseExtrude", EntityType.BODY), "propertyType" : PropertyType.NAME, "value" : "L1_Base" });
+    });
