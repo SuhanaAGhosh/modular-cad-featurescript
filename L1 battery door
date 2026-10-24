@@ -1,0 +1,68 @@
+FeatureScript 3029;
+import(path : "onshape/std/common.fs", version : "3029.0");
+
+
+
+annotation { "Feature Type Name" : "CanSat L1 Battery Door" }
+export const cansatL1BatteryDoor = defineFeature(function(context is Context, id is Id, definition is map)
+    precondition
+    {
+    }
+    {
+        // ---- Battery door: solid D-shaped plug, TRUE smooth curve ----
+        // Built by SUBTRACTING a box (everything past the chord) from a full cylinder (real circle).
+        // Leaves the small circular-segment cap: smooth curved outer edge + flat 80mm chord.
+        const OD = 144 * millimeter;
+        const doorHeight = 21 * millimeter;
+        const doorZ0 = 38 * millimeter;
+        const R = OD / 2; // 72mm, matches the wall's outer curve
+        const d = 59.8665 * millimeter; // distance from center to chord: sqrt(R^2 - 40^2)
+        const margin = 10 * millimeter;
+
+        makeDDoor(context, id + "door1", "Battery_Door_180", -1, R, d, margin, doorZ0, doorHeight);
+        makeDDoor(context, id + "door2", "Battery_Door_0", 1, R, d, margin, doorZ0, doorHeight);
+    });
+
+function makeDDoor(context is Context, doorId is Id, doorName is string, side is number, R is ValueWithUnits, d is ValueWithUnits, margin is ValueWithUnits, z0 is ValueWithUnits, height is ValueWithUnits)
+{
+    // ---- Full cylinder (real circle, genuinely smooth) ----
+    const cylPlane = plane(vector(0, 0, z0), vector(0, 0, 1), vector(1, 0, 0));
+    const skCyl = newSketchOnPlane(context, doorId + "CylSk", { "sketchPlane" : cylPlane });
+    skCircle(skCyl, "cyl", { "center" : vector(0, 0) * millimeter, "radius" : R });
+    skSolve(skCyl);
+    opExtrude(context, doorId + "CylExtrude", {
+        "entities" : qSketchRegion(doorId + "CylSk"),
+        "direction" : vector(0, 0, 1) * meter,
+        "endBound" : BoundingType.BLIND,
+        "endDepth" : height
+    });
+
+    // ---- Removal box: covers everything from the chord line inward to center and beyond ----
+    // For side=-1 (door1, keep X<=-d): remove box spans X from -d to +(R+margin)
+    // For side=+1 (door2, keep X>=+d): remove box spans X from -(R+margin) to +d
+    const removeXMin = side == -1 ? -d : -(R + margin);
+    const removeXMax = side == -1 ? (R + margin) : d;
+
+    const boxPlane = plane(vector(removeXMin, -(R + margin), z0 - margin), vector(0, 0, 1), vector(1, 0, 0));
+    const skBox = newSketchOnPlane(context, doorId + "BoxSk", { "sketchPlane" : boxPlane });
+    skRectangle(skBox, "box", {
+        "firstCorner" : vector(0 * millimeter, 0 * millimeter),
+        "secondCorner" : vector(removeXMax - removeXMin, 2 * (R + margin))
+    });
+    skSolve(skBox);
+    opExtrude(context, doorId + "BoxExtrude", {
+        "entities" : qSketchRegion(doorId + "BoxSk"),
+        "direction" : vector(0, 0, 1) * meter,
+        "endBound" : BoundingType.BLIND,
+        "endDepth" : height + 2 * margin
+    });
+
+    // ---- Subtract the removal box from the cylinder, leaving the D-shaped cap ----
+    opBoolean(context, doorId + "Subtract", {
+        "tools" : qCreatedBy(doorId + "BoxExtrude", EntityType.BODY),
+        "targets" : qCreatedBy(doorId + "CylExtrude", EntityType.BODY),
+        "operationType" : BooleanOperationType.SUBTRACTION
+    });
+
+    setProperty(context, { "entities" : qCreatedBy(doorId + "CylExtrude", EntityType.BODY), "propertyType" : PropertyType.NAME, "value" : doorName });
+}
