@@ -1,0 +1,35 @@
+FeatureScript 3029;
+import(path : "onshape/std/common.fs", version : "3029.0");
+
+
+annotation { "Feature Type Name" : "CanSat L1 Switch" }
+export const cansatL1Switch = defineFeature(function(context is Context, id is Id, definition is map)
+    precondition
+    {
+    }
+    {
+        // ---- LED switch: standalone solid protruding block, 15mm x 8mm, sitting at 90deg (+Y side) ----
+        // Separate feature (not fused to the wall) - sits flush against the wall's outer surface
+        const OD = 144 * millimeter;
+        const switchWidth = 15 * millimeter;
+        const switchHeight = 8 * millimeter;
+        const switchZ = 50 * millimeter; // within L1's 35-95mm range
+        const switchProtrusion = 6 * millimeter;
+        const wallOuterRadius = OD / 2;
+
+        const switchPlane = plane(vector(0, wallOuterRadius, switchZ), vector(0, 1, 0), vector(0, 0, 1));
+        const skSwitch = newSketchOnPlane(context, id + "switchSk", { "sketchPlane" : switchPlane });
+        skRectangle(skSwitch, "switch", {
+            "firstCorner" : vector(-switchWidth / 2, -switchHeight / 2),
+            "secondCorner" : vector(switchWidth / 2, switchHeight / 2)
+        });
+        skSolve(skSwitch);
+        opExtrude(context, id + "switchExtrude", {
+            "entities" : qSketchRegion(id + "switchSk"),
+            "direction" : vector(0, 1, 0) * meter,
+            "endBound" : BoundingType.BLIND,
+            "endDepth" : switchProtrusion
+        });
+
+        setProperty(context, { "entities" : qCreatedBy(id + "switchExtrude", EntityType.BODY), "propertyType" : PropertyType.NAME, "value" : "LED_Switch" });
+    });
