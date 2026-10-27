@@ -8,7 +8,7 @@ export const cansatL1Wall = defineFeature(function(context is Context, id is Id,
     }
     {
         // ---- L1 Wall geometry: 35mm to 95mm, hollow annular wall ----
-        const OD = 144 * millimeter;
+        const OD = 144 * millimeter; 
         const ID = 140 * millimeter;
         const z0 = 33 * millimeter;
         const z1 = 128 * millimeter; // 33mm + 95mm (9.5cm) total wall height
