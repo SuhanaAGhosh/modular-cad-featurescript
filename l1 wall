@@ -1,0 +1,84 @@
+FeatureScript 3029;
+import(path : "onshape/std/common.fs", version : "3029.0");
+
+annotation { "Feature Type Name" : "CanSat L1 Wall" }
+export const cansatL1Wall = defineFeature(function(context is Context, id is Id, definition is map)
+    precondition
+    {
+    }
+    {
+        // ---- L1 Wall geometry: 35mm to 95mm, hollow annular wall ----
+        const OD = 144 * millimeter;
+        const ID = 140 * millimeter;
+        const z0 = 33 * millimeter;
+        const z1 = 128 * millimeter; // 33mm + 95mm (9.5cm) total wall height
+        const height = z1 - z0;
+        const sketchPlane = plane(vector(0, 0, z0), vector(0, 0, 1), vector(1, 0, 0));
+        const skOuter = newSketchOnPlane(context, id + "l1OuterSk", { "sketchPlane" : sketchPlane });
+        skCircle(skOuter, "outer", { "center" : vector(0, 0) * millimeter, "radius" : OD / 2 });
+        skSolve(skOuter);
+        opExtrude(context, id + "l1OuterExtrude", {
+            "entities" : qSketchRegion(id + "l1OuterSk"),
+            "direction" : vector(0, 0, 1) * meter,
+            "endBound" : BoundingType.BLIND,
+            "endDepth" : height
+        });
+        const skInner = newSketchOnPlane(context, id + "l1InnerSk", { "sketchPlane" : sketchPlane });
+        skCircle(skInner, "inner", { "center" : vector(0, 0) * millimeter, "radius" : ID / 2 });
+        skSolve(skInner);
+        opExtrude(context, id + "l1InnerExtrude", {
+            "entities" : qSketchRegion(id + "l1InnerSk"),
+            "direction" : vector(0, 0, 1) * meter,
+            "endBound" : BoundingType.BLIND,
+            "endDepth" : height
+        });
+        opBoolean(context, id + "l1Subtract", {
+            "tools" : qCreatedBy(id + "l1InnerExtrude", EntityType.BODY),
+            "targets" : qCreatedBy(id + "l1OuterExtrude", EntityType.BODY),
+            "operationType" : BooleanOperationType.SUBTRACTION
+        });
+        // ---- Battery door 1: at 180deg (-X side) ----
+        makeL1BatteryDoor(context, id + "door1", 180 * degree, OD, id + "l1OuterExtrude");
+        // ---- Battery door 2: at 0deg (+X side, diametrically opposite door 1) ----
+        makeL1BatteryDoor(context, id + "door2", 0 * degree, OD, id + "l1OuterExtrude");
+        setProperty(context, { "entities" : qCreatedBy(id + "l1OuterExtrude", EntityType.BODY), "propertyType" : PropertyType.NAME, "value" : "L1_Wall" });
+    });
+function makeL1BatteryDoor(context is Context, doorId is Id, centerAngle is ValueWithUnits, OD is ValueWithUnits, targetId is Id)
+{
+    // Matches the D-shaped door: 80mm flat chord width, 21mm tall, starting 5mm above L1 base (Z=40mm)
+    const doorWidth = 80 * millimeter;
+    const doorHeight = 21 * millimeter;
+    const doorZ0 = 38 * millimeter; // 5mm gap from the wall's new start (33mm)
+    const doorZCenter = doorZ0 + doorHeight / 2;
+    const doorCutLength = 20 * millimeter;
+    const startRadius = OD / 2 + 5 * millimeter;
+    const startX = startRadius * cos(centerAngle);
+    const startY = startRadius * sin(centerAngle);
+    const inwardX = -cos(centerAngle);
+    const inwardY = -sin(centerAngle);
+    // "up" direction in the cutting plane = tangential to the circle at this angle
+    const upX = -sin(centerAngle);
+    const upY = cos(centerAngle);
+    const doorPlane = plane(
+        vector(startX, startY, doorZCenter),
+        vector(inwardX, inwardY, 0),
+        vector(upX, upY, 0)
+    );
+    const skDoor = newSketchOnPlane(context, doorId + "Sk", { "sketchPlane" : doorPlane });
+    skRectangle(skDoor, "door", {
+        "firstCorner" : vector(-doorWidth / 2, -doorHeight / 2),
+        "secondCorner" : vector(doorWidth / 2, doorHeight / 2)
+    });
+    skSolve(skDoor);
+    opExtrude(context, doorId + "Extrude", {
+        "entities" : qSketchRegion(doorId + "Sk"),
+        "direction" : vector(inwardX, inwardY, 0) * meter,
+        "endBound" : BoundingType.BLIND,
+        "endDepth" : doorCutLength
+    });
+    opBoolean(context, doorId + "Cut", {
+        "tools" : qCreatedBy(doorId + "Extrude", EntityType.BODY),
+        "targets" : qCreatedBy(targetId, EntityType.BODY),
+        "operationType" : BooleanOperationType.SUBTRACTION
+    });
+}
