@@ -1,0 +1,38 @@
+FeatureScript 3029;
+import(path : "onshape/std/common.fs", version : "3029.0");
+
+annotation { "Feature Type Name" : "CanSat LoRa Antenna Placeholder" }
+export const cansatLoraAntenna = defineFeature(function(context is Context, id is Id, definition is map)
+    precondition
+    {
+    }
+    {
+        // ---- LoRa whip antenna: 84mm total, mounted VERTICALLY along the outside wall at 0deg (+X) ----
+        // 60mm runs alongside L1 (35-95mm), remaining 24mm continues upward past L1 into L2's future territory
+        const ID = 140 * millimeter;
+        const antennaDia = 4 * millimeter;
+        const antennaLength = 84 * millimeter;
+        const mountAngle = 0 * degree;
+        const z0 = 95 * millimeter; // starts at the top of L1 / bottom of L2, standing up from there
+        const wallInnerRadius = ID / 2;
+        const clearanceFromWall = 5 * millimeter;
+        const mountRadius = wallInnerRadius - clearanceFromWall - antennaDia / 2; // 5mm gap from inner wall surface
+
+        const antennaPlane = plane(
+            vector(mountRadius * cos(mountAngle), mountRadius * sin(mountAngle), z0),
+            vector(0, 0, 1),
+            vector(1, 0, 0)
+        );
+        const skAntenna = newSketchOnPlane(context, id + "antennaSk", { "sketchPlane" : antennaPlane });
+        skCircle(skAntenna, "antenna", { "center" : vector(0, 0) * millimeter, "radius" : antennaDia / 2 });
+        skSolve(skAntenna);
+
+        opExtrude(context, id + "antennaExtrude", {
+            "entities" : qSketchRegion(id + "antennaSk"),
+            "direction" : vector(0, 0, 1) * meter,
+            "endBound" : BoundingType.BLIND,
+            "endDepth" : antennaLength
+        });
+
+        setProperty(context, { "entities" : qCreatedBy(id + "antennaExtrude", EntityType.BODY), "propertyType" : PropertyType.NAME, "value" : "Antenna_Whip" });
+    });
